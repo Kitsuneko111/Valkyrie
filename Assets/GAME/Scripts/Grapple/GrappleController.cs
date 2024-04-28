@@ -18,11 +18,11 @@ namespace Project.Grapple
         Character.CharacterController player;
         [SerializeField]
         public Stack<GrapplePoint> connections = new();
-        float maxGrapple = 40f;
+        float maxGrapple = 30f;
         [SerializeField]
         float currentMaxGrapple;
         float minGrapple = 2.5f;
-        float lenience = 5f;
+        float lenience = 2.5f;
         float acceleration = 1f;
         [SerializeField]
         LayerMask layerMask;
