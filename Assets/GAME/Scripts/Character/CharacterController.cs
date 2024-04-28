@@ -70,17 +70,24 @@ namespace Project.Character
         private void OnDrawGizmos()
         {
 
-            Vector3 groundedOffset = new Vector3(0f, -0.9f, 0f);
-            Gizmos.DrawWireSphere(transform.position + groundedOffset, 0.35f);
+            Vector3 groundedOffset = new Vector3(0f, -0.8f, 0f);
+            Gizmos.DrawWireSphere(transform.position + groundedOffset, 0.3f);
             Gizmos.color = Color.green;
             Vector3 vector = new Vector3(moveAmount.x, 0f, moveAmount.y);
-            Gizmos.DrawWireMesh(capsuleMesh, transform.position-mainCamera.transform.right.normalized*0.3f, Quaternion.identity, new Vector3((0.4f/0.5f), 1f, (0.4f/0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + Vector3.left * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + Vector3.right * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + Vector3.forward * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + Vector3.back * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + (Vector3.right +Vector3.forward).normalized * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + (Vector3.left + Vector3.forward).normalized * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + (Vector3.right +Vector3.back).normalized * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
+            Gizmos.DrawWireMesh(capsuleMesh, transform.position + (Vector3.left + Vector3.back).normalized * 0.3f, Quaternion.identity, new Vector3((0.4f / 0.5f), 1f, (0.4f / 0.5f)));
         }
 
         private void FixedUpdate()
         {
             Vector3 groundedOffset = new Vector3(0f, -0.9f, 0f);
-            if (Physics.CheckSphere(transform.position + groundedOffset, 0.35f, layerMask))
+            if (Physics.CheckSphere(transform.position + groundedOffset, 0.3f, layerMask))
             {
                 if (!isGrounded)
                 {
@@ -107,7 +114,15 @@ namespace Project.Character
                 transform.rotation = rotationChange;
                 mainCamera.orbit.transform.rotation = mainCamera.orbit.transform.rotation * rotationDifference;
             }
-            if (Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, -mainCamera.transform.right, out RaycastHit hitInfo, 0.3f, layerMask) || Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, mainCamera.transform.right, out hitInfo, 0.3f, layerMask))
+            bool wallJumped = false;
+            if (Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left, out RaycastHit hitInfo, 0.3f, layerMask) || 
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.right, out hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.forward, out hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.back, out hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left + Vector3.forward, out  hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.right + Vector3.forward, out hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left + Vector3.back, out hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.right + Vector3.back, out hitInfo, 0.3f, layerMask))
             {
                 if(jumps == 0 && !isGrounded && rb.velocity.x != 0 && rb.velocity.z != 0)
                 {
@@ -118,9 +133,10 @@ namespace Project.Character
                     }
                 }
                 Debug.DrawRay(transform.position, new Vector3(0f, 1f, 0f) + hitInfo.normal.normalized * jumpStrength/2f* movementMultiplier - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal);
-                if (jumping && rb.velocity.x != 0 && rb.velocity.z != 0)
+                if (jumping && rb.velocity.x != 0 && rb.velocity.z != 0 && jumps > 0)
                 {
                     jumpVector = new Vector3(0f, 1f, 0f) + hitInfo.normal.normalized * jumpStrength/3f * movementMultiplier - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal;
+                    wallJumped = true;
                 }
                 else jumpVector = new Vector3(0f, 1f, 0f);
             }
@@ -140,22 +156,24 @@ namespace Project.Character
 
                     }
                 }
-                //if(grappling && jumps == 0)
-                //{
-                //   StartCoroutine(ResetJumps());
-                //}
+                if(grappling && jumps == 0)
+                {
+                   StartCoroutine(ResetJumps());
+                }
             }
             jumping = false;
             Debug.DrawRay(transform.position, movementRotation * vector);
-            if(Physics.CapsuleCast(transform.position+Vector3.up*0.5f, transform.position-Vector3.up*0.5f, 0.4f, Quaternion.FromToRotation(Vector3.forward, transform.forward)*vector, out hitInfo,  0.21f, layerMask))
+            if (Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Quaternion.FromToRotation(Vector3.forward, transform.forward) * vector, out hitInfo, 0.21f, layerMask))
             {
-                Debug.DrawRay(transform.position, movementRotation*vector, Color.blue);
-                Debug.DrawRay(transform.position, (movementRotation * vector - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal * 1.1f)*movementMultiplier, Color.red);
+                Debug.DrawRay(transform.position, movementRotation * vector, Color.blue);
+                Debug.DrawRay(transform.position, (movementRotation * vector - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal * 1.1f) * movementMultiplier, Color.red);
                 rb.AddForce((movementRotation * vector - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal * 1.1f) * movementMultiplier, ForceMode.VelocityChange);
             }
-            else if(Mathf.Sqrt(rb.velocity.x*rb.velocity.x+rb.velocity.z*rb.velocity.z) < maxGroundSpeed || !isGrounded) rb.AddRelativeForce(vector * movementMultiplier, ForceMode.VelocityChange);
-            //rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxSpeed);
-            moveAmount = new();
+            else if (Mathf.Sqrt(rb.velocity.x * rb.velocity.x + rb.velocity.z * rb.velocity.z) < maxGroundSpeed || (!isGrounded && !wallJumped))
+            {
+                rb.AddRelativeForce(vector * movementMultiplier, ForceMode.VelocityChange);
+                rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxGroundSpeed+5);
+            }
         }
 
         IEnumerator ResetJumps()
