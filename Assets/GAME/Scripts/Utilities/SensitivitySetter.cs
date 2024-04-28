@@ -30,7 +30,7 @@ namespace Project.Utilities{
         private void LoadConfig()
         {
             Debug.Log("Refreshing");
-            string path = $"{Application.persistentDataPath}/LANA GAME/settings/";
+            string path = $"{Application.persistentDataPath}/settings/";
             if(!File.Exists(path + "sensitivity.json"))
             {
                 Directory.CreateDirectory(path);
