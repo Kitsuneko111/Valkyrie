@@ -76,5 +76,7 @@ crashlytics-build.properties
 ![Aa]ssets/GAME
 [Aa]ssets/GAME/*
 ![Aa]ssets/GAME/[Ss]cripts
-![Aa]ssets/GAME/[Ss]cripts/*
+[Aa]ssets/GAME/[Ss]cripts/*
 *.meta
+!*.cs
+![Aa]ssets/GAME/[Ss]cripts/*/*.cs
