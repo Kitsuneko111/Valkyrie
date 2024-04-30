@@ -29,13 +29,18 @@ namespace Project.Character
         [SerializeField]
         float maxGroundSpeed = 20f;
         [SerializeField]
+        float maxGroundSprint = 25f;
+        [SerializeField]
+        bool sprinting = false;
+        [SerializeField]
         int maxJumps = 2;
         [SerializeField]
         int jumps = 2;
         bool jumping = false;
         List<GrappleController> grapples = new List<GrappleController>();
         [SerializeField]
-        Collider lastWallJump;
+        public Vector3 lastWallJump;
+        public Vector3 lastWallNormal;
         Vector3 jumpVector = new Vector3(0f, 1f, 0f);
         public bool grappling
         {
@@ -59,12 +64,17 @@ namespace Project.Character
         public void OnMove(InputValue input)
         {
             Vector2 movement = input.Get<Vector2>();
-            moveAmount = movement.normalized;
+            moveAmount = movement.normalized*Mathf.Clamp01(movement.magnitude);
         }
 
         public void OnJump(InputValue input)
         {
             jumping = input.isPressed;
+        }
+
+        public void OnSprint(InputValue input)
+        {
+            sprinting = !sprinting;
         }
 
         private void OnDrawGizmos()
@@ -86,6 +96,7 @@ namespace Project.Character
 
         private void FixedUpdate()
         {
+            rb.AddForce(Physics.gravity/rb.drag);
             Vector3 groundedOffset = new Vector3(0f, -0.9f, 0f);
             if (Physics.CheckSphere(transform.position + groundedOffset, 0.3f, layerMask))
             {
@@ -94,7 +105,8 @@ namespace Project.Character
                     jumps = maxJumps;
                 }
                 isGrounded = true;
-                lastWallJump = null;
+                lastWallJump = Vector3.positiveInfinity;
+                lastWallNormal = Vector3.positiveInfinity;
                 //rb.AddForce(Vector3.up * jumpStrength);
             }
             else
@@ -114,32 +126,40 @@ namespace Project.Character
                 transform.rotation = rotationChange;
                 mainCamera.orbit.transform.rotation = mainCamera.orbit.transform.rotation * rotationDifference;
             }
-            bool wallJumped = false;
-            if (Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left, out RaycastHit hitInfo, 0.3f, layerMask) || 
+            bool walled = false;
+            if (Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left, out RaycastHit hitInfo, 0.3f, layerMask) ||
                 Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.right, out hitInfo, 0.3f, layerMask) ||
                 Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.forward, out hitInfo, 0.3f, layerMask) ||
                 Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.back, out hitInfo, 0.3f, layerMask) ||
-                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left + Vector3.forward, out  hitInfo, 0.3f, layerMask) ||
+                Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left + Vector3.forward, out hitInfo, 0.3f, layerMask) ||
                 Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.right + Vector3.forward, out hitInfo, 0.3f, layerMask) ||
                 Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.left + Vector3.back, out hitInfo, 0.3f, layerMask) ||
                 Physics.CapsuleCast(transform.position + Vector3.up * 0.5f, transform.position - Vector3.up * 0.5f, 0.4f, Vector3.right + Vector3.back, out hitInfo, 0.3f, layerMask))
             {
-                if(jumps == 0 && !isGrounded && rb.velocity.x != 0 && rb.velocity.z != 0)
+                if (rb.velocity.y < 0)
                 {
-                    if (lastWallJump == null || lastWallJump != hitInfo.collider)
+                    walled = true;
+                    rb.AddForce(-Physics.gravity * 0.9f * (Vector3.Magnitude(new Vector3(rb.velocity.x, rb.velocity.z)) > 1f ? 1 : 0.5f), ForceMode.Acceleration);
+                }
+                if (jumps == 0 && !isGrounded && rb.velocity.x != 0 && rb.velocity.z != 0)
+                {
+                    if (lastWallJump == Vector3.positiveInfinity || Vector3.Distance(transform.position, lastWallJump) > 10f || (Vector3.Angle(lastWallNormal, hitInfo.normal) > 5f && lastWallNormal != Vector3.positiveInfinity))
                     {
                         jumps++;
-                        lastWallJump = hitInfo.collider;
+                        lastWallJump = hitInfo.point;
+                        lastWallNormal = hitInfo.normal;
                     }
                 }
-                Debug.DrawRay(transform.position, new Vector3(0f, 1f, 0f) + hitInfo.normal.normalized * jumpStrength/2f* movementMultiplier - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal);
+                Debug.DrawRay(transform.position, new Vector3(0f, 1f, 0f) + hitInfo.normal.normalized * jumpStrength / 2f * movementMultiplier - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal);
                 if (jumping && rb.velocity.x != 0 && rb.velocity.z != 0 && jumps > 0)
                 {
-                    jumpVector = new Vector3(0f, 1f, 0f) + hitInfo.normal.normalized * jumpStrength/3f * movementMultiplier - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal;
-                    wallJumped = true;
+
+                    Debug.Log("THIS");
+                    jumpVector = new Vector3(0f, 1f, 0f) + hitInfo.normal.normalized * jumpStrength / (Physics.gravity.magnitude*rb.mass) * 1/movementMultiplier - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal;
                 }
                 else jumpVector = new Vector3(0f, 1f, 0f);
             }
+            else jumpVector = new Vector3(0f, 1f, 0f);
             if (jumping && jumps > 0)
             {
                 Debug.Log("jumping");
@@ -152,7 +172,11 @@ namespace Project.Character
                     List<Vector3> positions = new List<Vector3>();
                     foreach (GrappleController grapple in grapples.FindAll(x => x.grappling))
                     {
-                        rb.AddForce((grapple.connections.Peek().transform.position-transform.position).normalized * jumpStrength / 2, ForceMode.Impulse);
+                        if (!walled)
+                        {
+                            rb.AddForce((grapple.connections.Peek().transform.position - transform.position).normalized * jumpStrength / 2, ForceMode.Impulse);
+                        }
+                        rb.AddForce(Vector3.up / 2, ForceMode.Impulse);
 
                     }
                 }
@@ -169,10 +193,20 @@ namespace Project.Character
                 Debug.DrawRay(transform.position, (movementRotation * vector - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal * 1.1f) * movementMultiplier, Color.red);
                 rb.AddForce((movementRotation * vector - Vector3.Dot(hitInfo.normal, movementRotation * vector) * hitInfo.normal * 1.1f) * movementMultiplier, ForceMode.VelocityChange);
             }
-            else if (Mathf.Sqrt(rb.velocity.x * rb.velocity.x + rb.velocity.z * rb.velocity.z) < maxGroundSpeed || (!isGrounded && !wallJumped))
+            else if (Mathf.Sqrt(rb.velocity.x * rb.velocity.x + rb.velocity.z * rb.velocity.z) < maxGroundSprint && isGrounded && sprinting)
+            {
+                rb.AddRelativeForce(vector * movementMultiplier*1.5f, ForceMode.VelocityChange);
+            }
+            else if (Mathf.Sqrt(rb.velocity.x * rb.velocity.x + rb.velocity.z * rb.velocity.z) < maxGroundSpeed || (!isGrounded && !walled))
             {
                 rb.AddRelativeForce(vector * movementMultiplier, ForceMode.VelocityChange);
-                rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxGroundSpeed+5);
+            }
+            if(isGrounded && !sprinting)
+            {
+                rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxGroundSpeed);
+            }
+            else if(isGrounded && sprinting) {
+                rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxGroundSprint);
             }
         }
 
