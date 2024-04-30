@@ -30,6 +30,11 @@ namespace Project.Utilities
             return returnVal / behaviours.Count;
         }
 
+        public static float FlatDistance(this Vector3 vector, Vector3 vectorA, Vector3 vectorB)
+        {
+            return Mathf.Sqrt(Mathf.Pow(Mathf.Abs(vectorA.x - vectorB.x), 2) + Mathf.Pow(Mathf.Abs(vectorA.z- vectorB.z), 2));
+        }
+
 
         //https://github.com/walterellisfun/ConeCast/blob/master/ConeCastExtension.cs
         public static List<RaycastHit> ConeCastAll(this Physics physics, Vector3 origin, float maxRadius, Vector3 direction, float maxDistance, float coneAngle, LayerMask layermask)
