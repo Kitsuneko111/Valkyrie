@@ -67,7 +67,7 @@ namespace Project.Camera{
                 verticalOrbit.transform.localPosition = Vector3.Slerp(verticalOrbit.transform.localPosition, Vector3.left * targetShoulder, Time.deltaTime * 2f);
             }
             else verticalOrbit.transform.localPosition = Vector3.Slerp(verticalOrbit.transform.localPosition, Vector3.right * targetShoulder, Time.deltaTime * 2f);
-            lookVal = new();
+            //lookVal = new();
         }
 
         public void OnLook(InputValue input)
