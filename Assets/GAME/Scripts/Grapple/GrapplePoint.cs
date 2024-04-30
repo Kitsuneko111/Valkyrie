@@ -7,6 +7,7 @@ namespace Project.Grapple{
     public class GrapplePoint : MonoBehaviour
     {
         public float currentDistance;
+        public Collider collider;
 
         private void OnDrawGizmos()
         {
