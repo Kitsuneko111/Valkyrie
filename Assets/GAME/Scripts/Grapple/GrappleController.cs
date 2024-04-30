@@ -18,7 +18,7 @@ namespace Project.Grapple
         Character.CharacterController player;
         [SerializeField]
         public Stack<GrapplePoint> connections = new();
-        float maxGrapple = 30f;
+        float maxGrapple = 35f;
         [SerializeField]
         float currentMaxGrapple;
         float minGrapple = 2.5f;
@@ -41,6 +41,7 @@ namespace Project.Grapple
         float pullStart;
         LineRenderer lineRenderer;
         Vector3 lastHitPoint;
+        Collider lastHitCollider;
         [SerializeField]
         Image marker;
         [SerializeField]
@@ -84,7 +85,7 @@ namespace Project.Grapple
                     {
                         if (Vector3.Distance(lastHitPoint, transform.position) < maxGrapple)
                         {
-                            AddConnection(lastHitPoint, 0f);
+                            AddConnection(lastHitPoint, 0f, lastHitCollider);
                             Debug.Log("Grappled");
                         }
                     }
@@ -101,7 +102,7 @@ namespace Project.Grapple
             }
         }
 
-        private void AddConnection(Vector3 hitPoint, float distance)
+        private void AddConnection(Vector3 hitPoint, float distance, Collider collider)
         {
             Debug.Log("ADDING");
             GameObject connectionObject = new GameObject("GrappleConnection");
@@ -109,6 +110,7 @@ namespace Project.Grapple
             connection.transform.position = hitPoint;
             connectionObject.layer = 2;
             connection.currentDistance = distance;
+            connection.collider = collider;
             connections.Push(connection);
             Debug.Log("Added");
         }
@@ -160,14 +162,23 @@ namespace Project.Grapple
                 if (Physics.Raycast(transform.position, (connections.Peek().transform.position - transform.position).normalized, out hitInfo, Vector3.Distance(transform.position, connections.Peek().transform.position) - 0.01f, layerMask))
                 {
                     Debug.Log($"Found wall in between, {hitInfo.collider.gameObject.name} at {hitInfo.point}");
-                    AddConnection(hitInfo.point, connections.Peek().currentDistance + Vector3.Distance(connections.Peek().transform.position, hitInfo.point));
+                    AddConnection(hitInfo.point, connections.Peek().currentDistance + Vector3.Distance(connections.Peek().transform.position, hitInfo.point), hitInfo.collider);
                 }
                 GrapplePoint temp = connections.Pop();
                 //Debug.Log("Popped");
                 if (connections.Count > 0)
                 {
-                    //Debug.Log("Pop check");
-                    if (!Physics.Raycast(transform.position, (connections.Peek().transform.position - transform.position).normalized, out hitInfo, Vector3.Distance(transform.position, connections.Peek().transform.position) - 0.01f, layerMask) && Vector3.Angle((connections.Peek().transform.position-player.transform.position),(hitInfo.point-player.transform.position)) < 2f)
+                    Debug.Log("Pop check");
+                    Vector3 tangentVector = (Quaternion.AngleAxis(90, Vector3.up) * (connections.Peek().transform.position - transform.position)).normalized * 3f;
+                    Vector3 finalVector = tangentVector * Mathf.Sign(Vector3.Dot(tangentVector.normalized, Vector3.Normalize(transform.position + ((connections.Peek().transform.position - transform.position) / 2) - temp.transform.position)));
+                    Debug.Log(tangentVector);
+                    Debug.Log(Vector3.Dot(tangentVector.normalized, Vector3.Normalize(transform.position + ((connections.Peek().transform.position - transform.position) / 2) - temp.transform.position)));
+                    Debug.DrawRay(temp.transform.position, finalVector, Color.white);
+                    
+                    Debug.DrawRay(temp.transform.position, transform.position+((connections.Peek().transform.position - transform.position) / 2) - temp.transform.position, Color.red);
+                    Debug.DrawRay(transform.position, (connections.Peek().transform.position - transform.position) / 2, Color.green);
+                    if (!Physics.Raycast(transform.position, (connections.Peek().transform.position - transform.position).normalized, out hitInfo, Vector3.Distance(transform.position, connections.Peek().transform.position) - 0.01f, layerMask) && 
+                       (!Physics.Raycast(temp.transform.position+finalVector.normalized*0.01f, finalVector, 1f, layerMask)))
                     {
                         Destroy(temp.gameObject);
                         
@@ -217,9 +228,9 @@ namespace Project.Grapple
         {
 
             Gizmos.color = Color.green;
-            Gizmos.DrawWireMesh(conemesh, offset.position, Quaternion.LookRotation(offset.forward), new Vector3(5f, 5f, maxGrapple + 20f));
+            //Gizmos.DrawWireMesh(conemesh, offset.position, Quaternion.LookRotation(offset.forward), new Vector3(5f, 5f, maxGrapple + 20f));
             Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(offset.position - Quaternion.FromToRotation(new Vector3(0, 0, 2.5f), offset.forward) * new Vector3(0, 0, 2.5f)*0.5f, 2.5f);
+            //Gizmos.DrawWireSphere(offset.position - Quaternion.FromToRotation(new Vector3(0, 0, 2.5f), offset.forward) * new Vector3(0, 0, 2.5f)*0.5f, 2.5f);
         }
 
         private void LateUpdate()
@@ -234,6 +245,7 @@ namespace Project.Grapple
                 if (Physics.Raycast(offset.position, raycastHits[0].point - offset.position, out RaycastHit hitInfo, maxGrapple + 20f, layerMask) && Vector3.Distance(hitInfo.point, transform.position) < maxGrapple)
                 {
                     lastHitPoint = hitInfo.point;
+                    lastHitCollider = hitInfo.collider;
                     if (Vector3.Distance(lastHitPoint, transform.position) < maxGrapple)
                     {
                         marker.enabled = true;
@@ -243,12 +255,14 @@ namespace Project.Grapple
                     else
                     {
                         lastHitPoint = Vector3.positiveInfinity;
+                        lastHitCollider = null;
                         marker.enabled = false;
                     }
                 }
                 else
                 {
                     lastHitPoint = Vector3.positiveInfinity;
+                    lastHitCollider = null;
                     marker.enabled = false;
                 }
 
@@ -269,6 +283,7 @@ namespace Project.Grapple
                         else
                         {
                             lastHitPoint = Vector3.positiveInfinity;
+                            lastHitCollider = null;
                             marker.enabled = false;
                         }
                     }
@@ -276,6 +291,7 @@ namespace Project.Grapple
                 else
                 {
                     lastHitPoint = Vector3.positiveInfinity;
+                    lastHitCollider = null;
                     marker.enabled = false;
                 }
             }
