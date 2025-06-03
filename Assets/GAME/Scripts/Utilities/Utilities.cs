@@ -32,7 +32,17 @@ namespace Project.Utilities
 
         public static float FlatDistance(this Vector3 vector, Vector3 vectorA, Vector3 vectorB)
         {
-            return Mathf.Sqrt(Mathf.Pow(Mathf.Abs(vectorA.x - vectorB.x), 2) + Mathf.Pow(Mathf.Abs(vectorA.z- vectorB.z), 2));
+            return Mathf.Sqrt(Mathf.Pow(vectorA.x - vectorB.x, 2) + Mathf.Pow(vectorA.z- vectorB.z, 2));
+        }
+
+        public static float FlatDistance(this Vector3 vector, Vector3 vectorA)
+        {
+            return Mathf.Sqrt(Mathf.Pow(vectorA.x - vector.x, 2) + Mathf.Pow(vectorA.z - vector.z, 2));
+        }
+
+        public static Vector3 Flat(this Vector3 vector)
+        {
+            return new Vector3(vector.x, 0, vector.z);
         }
 
 
