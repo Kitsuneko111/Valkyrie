@@ -4,12 +4,8 @@ using UnityEngine;
 
 namespace Project.Utilities
 {
-    public class MonoSingleton<T> : MonoBehaviour where T : MonoBehaviour
+    public abstract class MonoSingleton<T> : MonoBehaviour where T : MonoSingleton<T>
     {
-        /*protected MonoSingleton()
-        {
-
-        }*/
 
         private static readonly object padlock = new object();
 
@@ -36,7 +32,7 @@ namespace Project.Utilities
             {
                 if (_instance == null)
                 {
-                    _instance = GetComponent<T>();
+                    _instance = (T)this;
                 }
                 else if (_instance != null && _instance != GetComponent<T>())
                 {

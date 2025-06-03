@@ -1,13 +1,9 @@
 ﻿namespace Project.Utilities
 {
-    public class Singleton<T> where T : class, new()
+    public abstract class Singleton<T> where T : Singleton<T>, new()
     {
         private static T _instance;
         private static readonly object padlock = new object();
-
-        protected Singleton()
-        {
-        }
 
         public static T Instance
         {

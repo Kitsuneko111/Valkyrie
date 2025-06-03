@@ -4,107 +4,118 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Project.Utilities;
 using UnityEngine.UI;
+using Project.UI;
 
 namespace Project.Grapple
 {
 
     [RequireComponent(typeof(LineRenderer))]
+    [RequireComponent(typeof(BarFiller))]
     public class GrappleController : MonoBehaviour
     {
-        [SerializeField]
-        Mesh conemesh;
-
+        // auto-detected components
+        LineRenderer lineRenderer;
         [SerializeField]
         Character.CharacterController player;
-        [SerializeField]
-        public Stack<GrapplePoint> connections = new();
-        float maxGrapple = 35f;
-        [SerializeField]
-        float currentMaxGrapple;
+        BarFiller barFiller;
+
+        // dev/config controlled values
+        public float maxGrapple = 35f;
         float minGrapple = 2.5f;
         float lenience = 2.5f;
-        float acceleration = 1f;
+        float acceleration = 0.075f;
         [SerializeField]
-        LayerMask layerMask;
+        float pullSpeed = 0.25f;
+        [SerializeField]
+        Transform offset;
+        [SerializeField]
+        public Image marker;
+        [SerializeField]
+        float markerSize = 0.5f;
+
         [SerializeField]
         bool leftGrapple = true;
         bool lastLeftGrapple = true;
         [SerializeField]
         bool rightGrapple = false;
         bool lastRightGrapple = false;
+
+        // internally tracked values
+        [SerializeField]
+        public Stack<GrapplePoint> connections = new();
+        [SerializeField]
+        float currentMaxGrapple;
         [SerializeField]
         float currentGrappleLength;
         bool pulling = false;
-        object padlock = new();
-        [SerializeField]
-        float pullSpeed = 0.25f;
         float pullStart;
-        LineRenderer lineRenderer;
         Vector3 lastHitPoint;
         Collider lastHitCollider;
-        [SerializeField]
-        Image marker;
-        [SerializeField]
-        Transform offset;
+        bool grappleLock;
 
+        // what can be grappled
+        [SerializeField]
+        LayerMask layerMask;
+
+        // visualisation only
+        [SerializeField]
+        Mesh conemesh;
+
+        // dynamic to allow for easier readability
         public bool grappling
         {
             get { return connections.Count > 0; }
         }
-        bool grappleLock = false;
+
+        public void AddLayer(int layer){
+            layerMask += 1 << layer;
+        }
 
         private void Start()
         {
             currentMaxGrapple = maxGrapple;
             lineRenderer = GetComponent<LineRenderer>();
-        }
-
-        public void OnLeftGrappleTap(InputValue input)
-        {
-            //if (leftGrapple) FireGrapple();
-        }
-
-        public void OnRightGrappleTap(InputValue input)
-        {
-            //if (rightGrapple) FireGrapple();
+            player = GetComponentInParent<Character.CharacterController>();
+            marker = leftGrapple ? GameObject.FindWithTag("LeftMarker").GetComponent<Image>() : GameObject.FindWithTag("RightMarker").GetComponent<Image>();
+            barFiller = GetComponent<BarFiller>();
         }
 
         void FireGrapple()
         {
-            Debug.Log("FIRE");
-            lock (padlock)
+            if (!grappling)
             {
                 if (grappleLock) return;
-                Debug.Log("Locking");
                 grappleLock = true;
-                if (!grappling)
+                // if not grappling try and grapple
+                currentMaxGrapple = maxGrapple;
+                // use the raycast from the camera to make it slightly more up to date to what the player sees
+                if (lastHitPoint != Vector3.positiveInfinity)
                 {
-                    currentMaxGrapple = maxGrapple;
-                    Debug.Log("Grappling");
-                    if (lastHitPoint != Vector3.positiveInfinity)
+                    if (Vector3.Distance(lastHitPoint, transform.position) < maxGrapple)
                     {
-                        if (Vector3.Distance(lastHitPoint, transform.position) < maxGrapple)
-                        {
-                            AddConnection(lastHitPoint, 0f, lastHitCollider);
-                            Debug.Log("Grappled");
-                        }
-                    }
-                }
-                else
-                {
-                    Debug.Log("Removing Grapple");
-                    while (connections.Count > 0)
-                    {
-                        Destroy(connections.Pop().gameObject);
-                        currentGrappleLength = 0;
+                        AddConnection(lastHitPoint, 0f, lastHitCollider);
                     }
                 }
             }
+            else
+            {
+                UnGrapple();
+            }
         }
 
+        public void UnGrapple()
+        {
+            // remove the grapple points
+            while (connections.Count > 0)
+            {
+                Destroy(connections.Pop().gameObject);
+                currentGrappleLength = 0;
+            }
+        }
+
+        // add a connection to the stack and set its values and behaviour
         private void AddConnection(Vector3 hitPoint, float distance, Collider collider)
         {
-            Debug.Log("ADDING");
             GameObject connectionObject = new GameObject("GrappleConnection");
             GrapplePoint connection = connectionObject.AddComponent<GrapplePoint>();
             connection.transform.position = hitPoint;
@@ -112,24 +123,29 @@ namespace Project.Grapple
             connection.currentDistance = distance;
             connection.collider = collider;
             connections.Push(connection);
-            Debug.Log("Added");
         }
 
         public void OnLeftGrappleHold(InputValue input)
         {
-            Debug.Log("Hold");
-            pulling = input.isPressed;
-            if (leftGrapple) PullGrapple();
+            if (leftGrapple)
+            {
+                pulling = input.isPressed;
+                PullGrapple();
+            }
         }
 
         public void OnRightGrappleHold(InputValue input)
         {
-            pulling = input.isPressed;
-            if (rightGrapple) PullGrapple();
+            if (rightGrapple)
+            {
+                pulling = input.isPressed;
+                PullGrapple();
+            }
         }
 
         void PullGrapple()
         {
+            // logic for which action to perform, not that this does not mean that 3/4 times it fires a new grapple, but that it may remove the grapple status
             if (pulling) pullStart = Time.realtimeSinceStartup;
             if (!grappling && !pulling)
             {
@@ -144,6 +160,7 @@ namespace Project.Grapple
             {
                 if (Time.realtimeSinceStartup < pullStart + 0.2f && !grappleLock)
                 {
+                    // if the player released the button under the hold time and hasn't already fired a grapple then fire/release it
                     FireGrapple();
                 }
             }
@@ -156,38 +173,46 @@ namespace Project.Grapple
             {
                 RaycastHit hitInfo;
                 currentGrappleLength = Vector3.Distance(connections.Peek().transform.position, transform.position) + connections.Peek().currentDistance;
-                if (currentGrappleLength > currentMaxGrapple) player.rb.AddForce((connections.Peek().transform.position - transform.position).normalized * acceleration, ForceMode.Force);
+                barFiller.progress = (currentMaxGrapple / maxGrapple);
+
+                // if the player significantly exceeds the length then stop any momentum in any other direction
                 if (currentGrappleLength > currentMaxGrapple + lenience) player.rb.AddForce((connections.Peek().transform.position - transform.position).normalized * (currentGrappleLength - (currentMaxGrapple + lenience)), ForceMode.VelocityChange);
-                Debug.DrawLine(transform.position, connections.Peek().transform.position, Color.red);
+                // otherwise if they're close to the limit just bounce them in the right direction
+                else if (currentGrappleLength > currentMaxGrapple) player.rb.AddForce((connections.Peek().transform.position - transform.position).normalized * acceleration, ForceMode.Force);
+
+                // if there is something in the way of the grapple and it's last connection then wrap around the wall
                 if (Physics.Raycast(transform.position, (connections.Peek().transform.position - transform.position).normalized, out hitInfo, Vector3.Distance(transform.position, connections.Peek().transform.position) - 0.01f, layerMask))
                 {
-                    Debug.Log($"Found wall in between, {hitInfo.collider.gameObject.name} at {hitInfo.point}");
                     AddConnection(hitInfo.point, connections.Peek().currentDistance + Vector3.Distance(connections.Peek().transform.position, hitInfo.point), hitInfo.collider);
                 }
+
                 GrapplePoint temp = connections.Pop();
-                //Debug.Log("Popped");
                 if (connections.Count > 0)
                 {
-                    Debug.Log("Pop check");
+                    // setup for a vector between the player and the second-last point from the location of the last point
                     Vector3 tangentVector = (Quaternion.AngleAxis(90, Vector3.up) * (connections.Peek().transform.position - transform.position)).normalized * 3f;
                     Vector3 finalVector = tangentVector * Mathf.Sign(Vector3.Dot(tangentVector.normalized, Vector3.Normalize(transform.position + ((connections.Peek().transform.position - transform.position) / 2) - temp.transform.position)));
-                    Debug.Log(tangentVector);
-                    Debug.Log(Vector3.Dot(tangentVector.normalized, Vector3.Normalize(transform.position + ((connections.Peek().transform.position - transform.position) / 2) - temp.transform.position)));
-                    Debug.DrawRay(temp.transform.position, finalVector, Color.white);
                     
-                    Debug.DrawRay(temp.transform.position, transform.position+((connections.Peek().transform.position - transform.position) / 2) - temp.transform.position, Color.red);
-                    Debug.DrawRay(transform.position, (connections.Peek().transform.position - transform.position) / 2, Color.green);
+                    // if there is nothing between the player and second-last point and also nothing between the last point and half way through the player and second-last point then we can say that the player has either unwrapped the grapple or done something weird
                     if (!Physics.Raycast(transform.position, (connections.Peek().transform.position - transform.position).normalized, out hitInfo, Vector3.Distance(transform.position, connections.Peek().transform.position) - 0.01f, layerMask) && 
-                       (!Physics.Raycast(temp.transform.position+finalVector.normalized*0.01f, finalVector, 1f, layerMask)))
+                       (!Physics.Raycast(temp.transform.position-finalVector.normalized*0.01f, finalVector, 1f, layerMask)))
                     {
                         Destroy(temp.gameObject);
                         
                     }
+                    // otherwise the temporary one is still valid
                     else connections.Push(temp);
                 }
                 else connections.Push(temp);
+                // if a connection somehow got bugged then just remove it (can happen at high speed)
                 if (currentMaxGrapple < connections.Peek().currentDistance && currentGrappleLength < 0.1f) Destroy(connections.Pop().gameObject);
             }
+            else
+            {
+                barFiller.progress = 0;
+            }
+
+            // reduce the current maximum grapple length
             if (pulling)
             {
                 currentMaxGrapple = Mathf.Clamp(currentMaxGrapple - pullSpeed, minGrapple, maxGrapple);
@@ -198,6 +223,7 @@ namespace Project.Grapple
 
         private void OnValidate()
         {
+            // toggle which is which, editor thing
             if (leftGrapple == rightGrapple)
             {
                 leftGrapple = rightGrapple == lastRightGrapple ? leftGrapple : !rightGrapple;
@@ -210,6 +236,7 @@ namespace Project.Grapple
 
         private void Update()
         {
+            // set up the visual for where the grapple is going and if it should be visible
             if (grappling)
             {
                 lineRenderer.enabled = true;
@@ -235,12 +262,15 @@ namespace Project.Grapple
 
         private void LateUpdate()
         {
+            // find all the spots that could be within the cone shape from the offset point
+            // TODO reduce offset but introduce a minimum distance?
             List<RaycastHit> raycastHits = new Physics().ConeCastAll(offset.position, 2.5f, offset.forward, maxGrapple + 20f, 5, layerMask);
+            // sort them in order of distance
             raycastHits.Sort((a, b) => ((int)Vector3.Distance(transform.position, a.point) * 100) - ((int)Vector3.Distance(transform.position, b.point) * 100));
+
+            // if there were hits then work out where is valid, set up the marks and etc.
             if (raycastHits.Count > 0)
             {
-                Debug.DrawRay(offset.position, raycastHits[0].point-offset.position, Color.yellow);
-                
 
                 if (Physics.Raycast(offset.position, raycastHits[0].point - offset.position, out RaycastHit hitInfo, maxGrapple + 20f, layerMask) && Vector3.Distance(hitInfo.point, transform.position) < maxGrapple)
                 {
@@ -248,10 +278,14 @@ namespace Project.Grapple
                     lastHitCollider = hitInfo.collider;
                     if (Vector3.Distance(lastHitPoint, transform.position) < maxGrapple)
                     {
+                        // logic to show the marker for where the player is about to try and grapple to
                         marker.enabled = true;
                         marker.transform.position = Vector3.MoveTowards(lastHitPoint, UnityEngine.Camera.main.transform.position, 0.5f);
                         marker.transform.rotation = Quaternion.LookRotation(lastHitPoint - UnityEngine.Camera.main.transform.position);
+                        marker.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, markerSize * Vector3.Distance(marker.transform.position, UnityEngine.Camera.main.transform.position));
+                        marker.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, markerSize * Vector3.Distance(marker.transform.position, UnityEngine.Camera.main.transform.position));
                     }
+                    // otherwise reset the last hit data and markers
                     else
                     {
                         lastHitPoint = Vector3.positiveInfinity;
@@ -269,6 +303,7 @@ namespace Project.Grapple
             }
             else
             {
+                // sometimes the conecast ignores the ground so in this case try firing straight ahead as the backup
                 if (Physics.Raycast(offset.position, offset.forward, out RaycastHit hitInfo, maxGrapple + 20f, layerMask))
                 {
                     if (Vector3.Distance(hitInfo.point, transform.position) < maxGrapple)
@@ -279,7 +314,11 @@ namespace Project.Grapple
                             marker.enabled = true;
                             marker.transform.position = Vector3.MoveTowards(lastHitPoint, UnityEngine.Camera.main.transform.position, 0.5f);
                             marker.transform.rotation = Quaternion.LookRotation(lastHitPoint - UnityEngine.Camera.main.transform.position);
+                            marker.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, markerSize*Vector3.Distance(marker.transform.position, UnityEngine.Camera.main.transform.position));
+                            marker.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, markerSize * Vector3.Distance(marker.transform.position, UnityEngine.Camera.main.transform.position));
+
                         }
+
                         else
                         {
                             lastHitPoint = Vector3.positiveInfinity;
@@ -295,6 +334,18 @@ namespace Project.Grapple
                     marker.enabled = false;
                 }
             }
+        }
+        private void OnEnable()
+        {
+            marker = leftGrapple ? GameObject.FindWithTag("LeftMarker").GetComponent<Image>() : GameObject.FindWithTag("RightMarker").GetComponent<Image>();
+
+            marker.enabled = true;
+        }
+        private void OnDisable()
+        {
+            marker = leftGrapple ? GameObject.FindWithTag("LeftMarker").GetComponent<Image>() : GameObject.FindWithTag("RightMarker").GetComponent<Image>();
+
+            marker.enabled = false;
         }
     }
 }

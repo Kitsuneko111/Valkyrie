@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using UnityEngine;
 
 namespace Project.Grapple{
-    
+    // glorified empty game object with some logic for dev gizmos
     public class GrapplePoint : MonoBehaviour
     {
         public float currentDistance;
-        public Collider collider;
+        new public Collider collider;
 
         private void OnDrawGizmos()
         {
