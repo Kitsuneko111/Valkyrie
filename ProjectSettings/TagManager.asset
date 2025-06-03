@@ -3,7 +3,11 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - LoadingImage
+  - LeftMarker
+  - RightMarker
+  - PauseMenu
   layers:
   - Default
   - TransparentFX
@@ -13,9 +17,9 @@ TagManager:
   - UI
   - Player
   - Camera
-  - 
-  - 
-  - 
+  - Barrier
+  - NonWallJumpable
+  - TempGrappleable
   - 
   - 
   - 
@@ -43,4 +47,7 @@ TagManager:
     locked: 0
   - name: HUD
     uniqueID: 540202987
+    locked: 0
+  - name: Pause
+    uniqueID: 753002855
     locked: 0
